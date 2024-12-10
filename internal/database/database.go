@@ -2,23 +2,28 @@ package database
 
 import (
 	"TgDonation/internal/database/models"
+	"fmt"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-// DBConnect устанавливает соединение с базой данных SQLite и выполняет миграции
 func DBConnect(databasePath string) (*gorm.DB, error) {
-	// Подключение к базе данных SQLite
+	// Подключение к SQLite
 	db, err := gorm.Open(sqlite.Open(databasePath), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	// Автоматическая миграция схемы
-	err = db.AutoMigrate(&models.User{})
+	// Автоматическая миграция
+	err = db.AutoMigrate(&models.User{}, &models.Donation{}, &models.TotalDonation{})
 	if err != nil {
 		return nil, err
+	}
+
+	// Проверяем, что подключение не равно nil
+	if db == nil {
+		return nil, fmt.Errorf("gorm.Open вернул nil экземпляр базы данных")
 	}
 
 	return db, nil

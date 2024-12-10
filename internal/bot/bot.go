@@ -13,13 +13,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// Bot представляет структуру бота
 type Bot struct {
 	*tele.Bot
 	db *gorm.DB
 }
 
-// New создает новый экземпляр бота
 func New(token string, boot TgDonation.Bootstrap) (*Bot, error) {
 	// Проверка токена перед вызовом NewBot
 	log.Printf("Инициализация бота с токеном: %s", token)
@@ -39,7 +37,6 @@ func New(token string, boot TgDonation.Bootstrap) (*Bot, error) {
 	}, nil
 }
 
-// Start запускает бота и регистрирует обработчики
 func (b *Bot) Start() {
 	b.Use(middleware.Logger())
 	b.Use(middleware.AutoRespond())
