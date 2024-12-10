@@ -25,7 +25,7 @@ func (h *Handler) onStart(c tele.Context) error {
 	menu := &tele.ReplyMarkup{}
 	btn1 := menu.Data("🧡 Сделать пожертвование", "donation")
 	btn2 := menu.Data("ℹ️ Информация о фонде", "info")
-	btn3 := menu.Data("📞 Связаться с нами", "contact")
+	btn3 := menu.Data("📞 Наши соц.сети", "social")
 	btn4 := menu.Data("🎯 Цели", "goal")
 
 	menu.Inline(
