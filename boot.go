@@ -1,10 +1,9 @@
-package ${PROJECT}
+package TgDonation
 
-import (
-	"${MODULE}/internal/database"
-)
+import "gorm.io/gorm"
 
+// Bootstrap содержит глобальные зависимости приложения
 type Bootstrap struct {
-	DB *database.DB
-	// ...
+	DB *gorm.DB // Подключение к базе данных через GORM
+	// Можно добавить другие зависимости, такие как клиент для API, кэш, логгер и т.д.
 }

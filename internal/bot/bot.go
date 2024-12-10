@@ -1,52 +1,51 @@
 package bot
 
 import (
-	"${MODULE}"
-	"${MODULE}/internal/database"
+	"TgDonation"
+	"TgDonation/internal/bot/handlers"
 
-	tele "gopkg.in/telebot.v3"
-	"gopkg.in/telebot.v3/layout"
-	"gopkg.in/telebot.v3/middleware"
+	"log"
+	"time"
+
+	tele "gopkg.in/telebot.v4"
+	"gopkg.in/telebot.v4/middleware"
+
+	"gorm.io/gorm"
 )
 
+// Bot представляет структуру бота
 type Bot struct {
 	*tele.Bot
-	*layout.Layout
-	db *database.DB
+	db *gorm.DB
 }
 
-func New(path string, boot ${PROJECT}.Bootstrap) (*Bot, error) {
-	lt, err := layout.New(path)
+// New создает новый экземпляр бота
+func New(token string, boot TgDonation.Bootstrap) (*Bot, error) {
+	// Проверка токена перед вызовом NewBot
+	log.Printf("Инициализация бота с токеном: %s", token)
+
+	b, err := tele.NewBot(tele.Settings{
+		Token:     token,
+		ParseMode: "HTML",
+		Poller:    &tele.LongPoller{Timeout: 5 * time.Second},
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	b, err := tele.NewBot(lt.Settings())
-	if err != nil {
-		return nil, err
-	}
-
-	if cmds := lt.Commands(); cmds != nil {
-		if err := b.SetCommands(cmds); err != nil {
-			return nil, err
-		}
 	}
 
 	return &Bot{
-		Bot:    b,
-		Layout: lt,
-		db:     boot.DB,
+		Bot: b,
+		db:  boot.DB,
 	}, nil
 }
 
+// Start запускает бота и регистрирует обработчики
 func (b *Bot) Start() {
-	// Middlewares
 	b.Use(middleware.Logger())
 	b.Use(middleware.AutoRespond())
-	b.Use(b.Middleware("en"))
 
-	// Handlers
-	b.Handle("/start", b.onStart)
+	handlers.RegisterHandlers(b.Bot, b.db)
 
+	log.Println("Бот успешно запущен")
 	b.Bot.Start()
 }

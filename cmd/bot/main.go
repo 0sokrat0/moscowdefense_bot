@@ -2,27 +2,38 @@ package main
 
 import (
 	"log"
-	"os"
 
-	"${MODULE}"
-	"${MODULE}/internal/bot"
-	"${MODULE}/internal/database"
+	"TgDonation"
+	"TgDonation/internal/bot"
+	"TgDonation/internal/configs"
+	"TgDonation/internal/database"
 )
 
 func main() {
-	db, err := database.Open(os.Getenv("DB_URL"))
+	// Загрузка конфигурации с использованием Viper
+	config, err := configs.LoadConfig("config.yaml")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
 	}
 
-	boot := ${PROJECT}.Bootstrap{
+	// Подключение к базе данных
+	db, err := database.DBConnect(config.DBPath)
+	if err != nil {
+		log.Fatalf("Ошибка подключения к базе данных: %v", err)
+	}
+
+	// Инициализация зависимостей через Bootstrap
+	boot := TgDonation.Bootstrap{
 		DB: db,
 	}
 
-	b, err := bot.New("bot.yml", boot)
+	// Инициализация бота
+	b, err := bot.New(config.Token, boot)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Ошибка инициализации бота: %v", err)
 	}
 
+	// Запуск бота
+	log.Println("Бот успешно запущен")
 	b.Start()
 }
