@@ -23,7 +23,7 @@ func RegisterHandlers(bot *tele.Bot, db *gorm.DB) {
 	menu := &tele.ReplyMarkup{}
 	btnDonation := menu.Data("🧡 Сделать пожертвование", "donation")
 	btnInfo := menu.Data("ℹ️ Информация о фонде", "info")
-	btnSocial := menu.Data("📞 Связаться с нами", "social")
+	btnSocial := menu.Data("💬 Наши соц.сети", "social")
 	btnGoal := menu.Data("🎯 Цели", "goal")
 
 	bot.Handle(&btnDonation, h.onDonation)
