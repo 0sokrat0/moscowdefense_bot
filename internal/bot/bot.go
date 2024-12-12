@@ -3,6 +3,7 @@ package bot
 import (
 	"TgDonation"
 	"TgDonation/internal/bot/handlers"
+	"github.com/looplab/fsm"
 
 	"log"
 	"time"
@@ -15,13 +16,12 @@ import (
 
 type Bot struct {
 	*tele.Bot
-	db *gorm.DB
+	db       *gorm.DB
+	userFSM  map[int64]*fsm.FSM               // FSM для каждого пользователя
+	userData map[int64]map[string]interface{} // Данные пользователей
 }
 
 func New(token string, boot TgDonation.Bootstrap) (*Bot, error) {
-	// Проверка токена перед вызовом NewBot
-	log.Printf("Инициализация бота с токеном: %s", token)
-
 	b, err := tele.NewBot(tele.Settings{
 		Token:     token,
 		ParseMode: "HTML",
@@ -32,16 +32,18 @@ func New(token string, boot TgDonation.Bootstrap) (*Bot, error) {
 	}
 
 	return &Bot{
-		Bot: b,
-		db:  boot.DB,
+		Bot:      b,
+		db:       boot.DB,
+		userFSM:  make(map[int64]*fsm.FSM),
+		userData: make(map[int64]map[string]interface{}),
 	}, nil
 }
 
 func (b *Bot) Start() {
-	b.Use(middleware.Logger())
+	//b.Use(middleware.Logger())
 	b.Use(middleware.AutoRespond())
 
-	handlers.RegisterHandlers(b.Bot, b.db)
+	handlers.RegisterHandlers(b.Bot, b.db, b.userFSM, b.userData)
 
 	log.Println("Бот успешно запущен")
 	b.Bot.Start()

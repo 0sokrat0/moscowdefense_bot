@@ -6,6 +6,15 @@ import (
 	"log"
 )
 
+// onBack обрабатывает кнопку "Назад"
+func (h *Handler) onBack(c tele.Context) error {
+	if err := c.Bot().Delete(c.Callback().Message); err != nil {
+		log.Printf("Ошибка удаления сообщения: %v", err)
+	}
+
+	return h.onStart(c)
+}
+
 func (h *Handler) onStart(c tele.Context) error {
 
 	var existingUser models.User

@@ -16,7 +16,7 @@ func DBConnect(databasePath string) (*gorm.DB, error) {
 	}
 
 	// Автоматическая миграция
-	err = db.AutoMigrate(&models.User{}, &models.Donation{}, &models.TotalDonation{})
+	err = db.AutoMigrate(&models.User{}, &models.Donation{}, &models.TotalDonation{}, &models.Goal{})
 	if err != nil {
 		return nil, err
 	}
