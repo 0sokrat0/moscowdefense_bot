@@ -3,9 +3,10 @@ package handlers
 import (
 	"TgDonation/internal/database/models"
 	"context"
-	tele "gopkg.in/telebot.v4"
 	"log"
 	"strconv"
+
+	tele "gopkg.in/telebot.v4"
 )
 
 const (
@@ -15,29 +16,27 @@ const (
 	StateFinish      = "finish"
 )
 
+type FSM interface {
+	Event(ctx context.Context, event string) error
+	Current() string
+	SetState(state string)
+}
+
 func (h *Handler) onDonation(c tele.Context) error {
 	fsm := h.getOrCreateFSM(c.Sender().ID)
 	ctx := context.Background()
 
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
+	if err := deleteMessage(c); err != nil {
 		log.Printf("Ошибка удаления сообщения: %v", err)
 	}
 
-	if err := fsm.Event(ctx, "bank"); err != nil {
+	if err := fsm.Event(ctx, StateSelectBank); err != nil {
 		log.Printf("FSM Event Error: %v", err)
 		h.resetFSM(c.Sender().ID)
 		return c.Send("Произошла ошибка. Начните процесс заново, выбрав 'Сделать пожертвование'.")
 	}
 
-	menu := &tele.ReplyMarkup{}
-	btnSber := menu.Data("🟢 Сбербанк", "sber", "sber")
-	btnVTB := menu.Data("🔵 ВТБ", "vtb", "vtb")
-	btnSBP := menu.Data("💠 СБП", "sbp", "sbp")
-
-	menu.Inline(
-		menu.Row(btnSber, btnVTB, btnSBP),
-	)
-
+	menu := createBankMenu()
 	return c.Send("<b>Выберите банк для пожертвования:</b>", menu)
 }
 
@@ -45,80 +44,64 @@ func (h *Handler) onBankDetails(c tele.Context) error {
 	fsm := h.getOrCreateFSM(c.Sender().ID)
 	ctx := context.Background()
 
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
+	if err := deleteMessage(c); err != nil {
 		log.Printf("Ошибка удаления сообщения: %v", err)
 	}
-
-	log.Printf("FSM Current State (Before Event) for User %d: %s", c.Sender().ID, fsm.Current())
 
 	if fsm.Current() != StateSelectBank {
 		h.resetFSM(c.Sender().ID)
 		return c.Send("Выбор банка сейчас недоступен. Начните процесс заново.")
 	}
 
-	if h.UserData[c.Sender().ID] == nil {
-		h.UserData[c.Sender().ID] = make(map[string]interface{})
-	}
-
+	h.UserData[c.Sender().ID] = ensureUserData(h.UserData[c.Sender().ID])
 	selectedBank := c.Callback().Data
-	var bankDetails string
-	switch selectedBank {
-	case "sber":
-		h.UserData[c.Sender().ID]["bank"] = "Сбербанк"
-		bankDetails = "🟢 <b>Реквизиты Сбербанка:</b>\nКарта:<code> 2202 2080 3701 1005</code>\n<b>Получатель:</b> Лукичёва Юлия Николаевна"
-	case "vtb":
-		h.UserData[c.Sender().ID]["bank"] = "ВТБ"
-		bankDetails = "🔵 <b>Реквизиты ВТБ:</b>\nКарта:<code> 2200 2402 1368 9108</code>\n<b>Получатель:</b> Лукичёва Юлия Николаевна"
-	case "sbp":
-		h.UserData[c.Sender().ID]["bank"] = "СБП"
-		bankDetails = "💠 <b>Реквизиты СБП:</b>\nТелефон:<code> +7 963 752-92-99</code>\n<b>Получатель:</b> Лукичёва Юлия Николаевна"
-	default:
+	bankDetails, valid := getBankDetails(selectedBank)
+	if !valid {
 		return c.Send("Неизвестный банк. Попробуйте снова.")
 	}
 
-	if err := fsm.Event(ctx, "amount"); err != nil {
+	h.UserData[c.Sender().ID]["bank"] = bankDetails.BankName
+	if err := fsm.Event(ctx, StateEnterAmount); err != nil {
 		log.Printf("FSM Event Error: %v", err)
 		h.resetFSM(c.Sender().ID)
 		return c.Send("Произошла ошибка. Начните процесс заново.")
 	}
 
 	log.Printf("User %d selected bank: %s", c.Sender().ID, selectedBank)
-
-	return c.Send(bankDetails + "\n\n<b>Введите сумму пожертвования:</b>")
+	return c.Send(bankDetails.Details + "\n\n<b>Введите сумму пожертвования:</b>")
 }
 
 func (h *Handler) onEnterAmount(c tele.Context) error {
 	fsm := h.getOrCreateFSM(c.Sender().ID)
-
-	log.Printf("FSM Current State for User %d: %s", c.Sender().ID, fsm.Current())
-
 	if fsm.Current() != StateEnterAmount {
 		h.resetFSM(c.Sender().ID)
 		return c.Send("Вы не можете ввести сумму сейчас. Начните процесс заново.")
 	}
 
-	if h.UserData[c.Sender().ID] == nil {
-		h.UserData[c.Sender().ID] = make(map[string]interface{})
+	reaction := tele.Reaction{
+		Type:  "emoji",
+		Emoji: "👌",
 	}
+
+	reactions := tele.Reactions{
+		Reactions: []tele.Reaction{reaction},
+		Big:       false,
+	}
+
+	if err := c.Bot().React(c.Sender(), c.Message(), reactions); err != nil {
+		log.Printf("Ошибка при добавлении реакции: %v", err)
+		return c.Send("Не удалось добавить реакцию.")
+	}
+
+	h.UserData[c.Sender().ID] = ensureUserData(h.UserData[c.Sender().ID])
 	h.UserData[c.Sender().ID]["amount"] = c.Text()
-
 	log.Printf("User %d entered amount: %s", c.Sender().ID, c.Text())
-
 	return c.Send("<b>Пожалуйста, загрузите фото чека для подтверждения:</b>")
 }
 
 func (h *Handler) onUploadReceipt(c tele.Context) error {
 	fsm := h.getOrCreateFSM(c.Sender().ID)
 	ctx := context.Background()
-
-	back := &tele.ReplyMarkup{}
-	btnBack := back.Data("⬅️ Назад", "back")
-
-	back.Inline(
-		back.Row(btnBack),
-	)
-
-	log.Printf("FSM Current State for User %d: %s", c.Sender().ID, fsm.Current())
 
 	if fsm.Current() != StateEnterAmount {
 		h.resetFSM(c.Sender().ID)
@@ -129,63 +112,41 @@ func (h *Handler) onUploadReceipt(c tele.Context) error {
 		return c.Send("<b>Пожалуйста, отправьте фото чека.</b>")
 	}
 
-	// Получение последнего фото из массива (Telegram отправляет фото с разными размерами)
-	photo := c.Message().Photo
-	fileID := photo.FileID
-
-	var user models.User
-	if err := h.DB.FirstOrCreate(&user, models.User{TgID: c.Sender().ID}).Error; err != nil {
-		log.Printf("Database Error (User): %v", err)
-		h.resetFSM(c.Sender().ID)
-		return c.Send("<b>Ошибка при обработке пользователя. Попробуйте позже.</b>")
-	}
-
-	// Получаем данные из UserData
-	bank, bankExists := h.UserData[c.Sender().ID]["bank"]
-	if !bankExists {
-		h.resetFSM(c.Sender().ID)
-		return c.Send("<b>Не удалось найти данные о банке. Начните процесс заново.</b>")
-	}
-
-	amountStr, amountExists := h.UserData[c.Sender().ID]["amount"].(string)
-	if !amountExists {
-		h.resetFSM(c.Sender().ID)
-		return c.Send("<b>Не удалось найти данные о сумме. Начните процесс заново.</b>")
-	}
-
-	// Преобразование суммы в число
-	amount, err := strconv.Atoi(amountStr)
-	if err != nil {
-		h.resetFSM(c.Sender().ID)
-		return c.Send("<b>Сумма введена некорректно. Начните процесс заново.</b>")
-	}
-
-	// Сохраняем пожертвование в базе данных
-	donation := models.Donation{
-		UserID:       user.ID,
-		BankName:     bank.(string),
-		Amount:       float64(amount),
-		ReceiptPhoto: fileID, // Сохраняем FileID фото
-	}
-
-	if err := h.DB.Create(&donation).Error; err != nil {
-		log.Printf("Database Error: %v", err)
+	if _, err := createDonation(h, c); err != nil {
+		log.Printf("Error saving donation: %v", err)
 		h.resetFSM(c.Sender().ID)
 		return c.Send("<b>Ошибка при сохранении данных пожертвования. Попробуйте позже.</b>")
 	}
 
-	// Завершаем FSM
-	if err := fsm.Event(ctx, "finish"); err != nil {
+	if err := fsm.Event(ctx, StateFinish); err != nil {
 		log.Printf("FSM Event Error: %v", err)
 		h.resetFSM(c.Sender().ID)
 		return c.Send("<b>Произошла ошибка. Начните процесс заново.</b>")
 	}
 
-	// Удаляем данные пользователя и FSM
-	delete(h.UserData, c.Sender().ID)
-	delete(h.UserFSM, c.Sender().ID)
+	reaction := tele.Reaction{
+		Type:  "emoji",
+		Emoji: "🤝",
+	}
 
-	return c.Send("<b>Спасибо за ваше пожертвование! Ваша поддержка важна.</b>", back)
+	reactions := tele.Reactions{
+		Reactions: []tele.Reaction{reaction},
+		Big:       false,
+	}
+
+	if err := c.Bot().React(c.Sender(), c.Message(), reactions); err != nil {
+		log.Printf("Ошибка при добавлении реакции: %v", err)
+		return c.Send("Не удалось добавить реакцию.")
+	}
+
+	h.deleteAllMessages(c)
+	h.resetFSM(c.Sender().ID)
+
+	menu := &tele.ReplyMarkup{}
+	btnMainBack := menu.Data("⬅️ В главное меню", "main_menu")
+	menu.Inline(menu.Row(btnMainBack))
+
+	return c.Send("<b>Спасибо за ваше пожертвование! Ваша поддержка важна.</b>", menu)
 }
 
 func (h *Handler) resetFSM(userID int64) {
@@ -194,4 +155,118 @@ func (h *Handler) resetFSM(userID int64) {
 		h.UserFSM[userID].SetState(StateStart)
 	}
 	delete(h.UserData, userID)
+}
+
+// Utility functions
+func deleteMessage(c tele.Context) error {
+	if c.Callback().Message != nil {
+		return c.Bot().Delete(c.Callback().Message)
+	}
+	return nil
+}
+
+func (h *Handler) deleteAllMessages(c tele.Context) {
+	if msgs, ok := h.UserData[c.Sender().ID]["messages"].([]*tele.Message); ok {
+		for _, msg := range msgs {
+			if err := c.Bot().Delete(msg); err != nil {
+				log.Printf("Error deleting message: %v", err)
+			}
+		}
+		h.UserData[c.Sender().ID]["messages"] = []*tele.Message{}
+	} else {
+		log.Printf("No messages found for user %d", c.Sender().ID)
+	}
+}
+
+func (h *Handler) onMainMenu(c tele.Context) error {
+	h.resetFSM(c.Sender().ID)
+	if err := c.Bot().Delete(c.Callback().Message); err != nil {
+		log.Printf("Ошибка удаления сообщения: %v", err)
+	}
+
+	return h.onStart(c)
+}
+
+type BankDetails struct {
+	BankName string
+	Details  string
+}
+
+func getBankDetails(bank string) (BankDetails, bool) {
+	switch bank {
+	case "sber":
+		return BankDetails{
+			BankName: "Сбербанк",
+			Details:  "🟢 <b>Реквизиты Сбербанка:</b>\nКарта:<code> 2202 2080 3701 1005</code>\n<b>Получатель:</b> Лукичёва Ю.Н",
+		}, true
+	case "vtb":
+		return BankDetails{
+			BankName: "ВТБ",
+			Details:  "🔵 <b>Реквизиты ВТБ:</b>\nКарта:<code> 2200 2402 1368 9108</code>\n<b>Получатель:</b> Лукичёва Ю.Н",
+		}, true
+	case "sbp":
+		return BankDetails{
+			BankName: "СБП",
+			Details:  "💠 <b>Реквизиты СБП:</b>\nТелефон:<code> +7 963 752-92-99</code>\n<b>Получатель:</b> Лукичёва Ю.Н",
+		}, true
+	default:
+		return BankDetails{}, false
+	}
+}
+
+func ensureUserData(data map[string]interface{}) map[string]interface{} {
+	if data == nil {
+		return make(map[string]interface{})
+	}
+	return data
+}
+
+func createBankMenu() *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	btnSber := menu.Data("🟢 Сбербанк", "sber", "sber")
+	btnVTB := menu.Data("🔵 ВТБ", "vtb", "vtb")
+	btnSBP := menu.Data("💠 СБП", "sbp", "sbp")
+
+	menu.Inline(
+		menu.Row(btnSber, btnVTB, btnSBP),
+	)
+	return menu
+}
+
+func createDonation(h *Handler, c tele.Context) (models.Donation, error) {
+	photo := c.Message().Photo
+	fileID := photo.FileID
+
+	var user models.User
+	if err := h.DB.FirstOrCreate(&user, models.User{TgID: c.Sender().ID}).Error; err != nil {
+		return models.Donation{}, err
+	}
+
+	bank, _ := h.UserData[c.Sender().ID]["bank"].(string)
+	amountStr, _ := h.UserData[c.Sender().ID]["amount"].(string)
+	amount, err := strconv.Atoi(amountStr)
+	if err != nil {
+		return models.Donation{}, err
+	}
+
+	donation := models.Donation{
+		UserID:       user.ID,
+		BankName:     bank,
+		Amount:       float64(amount),
+		ReceiptPhoto: fileID,
+	}
+
+	if err := h.DB.Create(&donation).Error; err != nil {
+		return models.Donation{}, err
+	}
+
+	var total models.TotalDonation
+	h.DB.Find(&total)
+	total.Total += donation.Amount
+
+	if err := h.DB.Save(&total).Error; err != nil {
+		return models.Donation{}, err
+	}
+
+	return donation, nil
 }

@@ -42,6 +42,7 @@ func RegisterHandlers(bot *tele.Bot, db *gorm.DB, userFSM map[int64]*fsm.FSM, us
 	bot.Handle(&tele.Btn{Unique: "sbp"}, h.onBankDetails)
 	bot.Handle(&tele.Btn{Unique: "back"}, h.onBack)
 	bot.Handle(&btnInfo, h.onInfo)
+	bot.Handle(&tele.Btn{Unique: "main_menu"}, h.onMainMenu)
 	bot.Handle(tele.OnText, h.onEnterAmount)
 	bot.Handle(tele.OnPhoto, h.onUploadReceipt)
 	bot.Handle(&btnSocial, h.onSocial)
