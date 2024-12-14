@@ -12,10 +12,11 @@ const (
 )
 
 type Handler struct {
-	Bot      *tele.Bot
-	DB       *gorm.DB
-	UserFSM  map[int64]*fsm.FSM
-	UserData map[int64]map[string]interface{}
+	Bot               *tele.Bot
+	DB                *gorm.DB
+	UserFSM           map[int64]*fsm.FSM
+	UserData          map[int64]map[string]interface{}
+	UserAlbumMessages map[int64][]*tele.Message
 }
 
 func RegisterHandlers(bot *tele.Bot, db *gorm.DB, userFSM map[int64]*fsm.FSM, userData map[int64]map[string]interface{}) {
@@ -41,6 +42,7 @@ func RegisterHandlers(bot *tele.Bot, db *gorm.DB, userFSM map[int64]*fsm.FSM, us
 	bot.Handle(&tele.Btn{Unique: "vtb"}, h.onBankDetails)
 	bot.Handle(&tele.Btn{Unique: "sbp"}, h.onBankDetails)
 	bot.Handle(&tele.Btn{Unique: "back"}, h.onBack)
+	bot.Handle(&tele.Btn{Unique: "backAlbum"}, h.onBackAlbum)
 	bot.Handle(&btnInfo, h.onInfo)
 	bot.Handle(&tele.Btn{Unique: "main_menu"}, h.onMainMenu)
 	bot.Handle(tele.OnText, h.onEnterAmount)

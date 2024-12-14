@@ -3,6 +3,7 @@ package bot
 import (
 	"TgDonation"
 	"TgDonation/internal/bot/handlers"
+
 	"github.com/looplab/fsm"
 
 	"log"
@@ -40,7 +41,7 @@ func New(token string, boot TgDonation.Bootstrap) (*Bot, error) {
 }
 
 func (b *Bot) Start() {
-	//b.Use(middleware.Logger())
+	// b.Use(middleware.Logger())
 	b.Use(middleware.AutoRespond())
 
 	handlers.RegisterHandlers(b.Bot, b.db, b.userFSM, b.userData)

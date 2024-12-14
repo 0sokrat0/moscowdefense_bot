@@ -146,7 +146,7 @@ func (h *Handler) onUploadReceipt(c tele.Context) error {
 	btnMainBack := menu.Data("⬅️ В главное меню", "main_menu")
 	menu.Inline(menu.Row(btnMainBack))
 
-	return c.Send("<b>Спасибо за ваше пожертвование! Ваша поддержка важна.</b>", menu)
+	return c.Send("<b>Благодарим вас за помощь тылу!</b>", menu)
 }
 
 func (h *Handler) resetFSM(userID int64) {
