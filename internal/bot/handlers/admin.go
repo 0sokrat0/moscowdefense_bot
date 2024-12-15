@@ -13,18 +13,21 @@ import (
 
 // Админ-панель
 func (h *Handler) onPanel(c tele.Context) error {
+	h.tryDeleteMessage(c)
 	if !h.isAdminFromDB(int(c.Sender().ID)) {
 		return c.Send("У вас нет доступа к админ-панели.")
 	}
 
 	menu := &tele.ReplyMarkup{}
-	GoalsBtn := menu.Data("Управление целями:", "goals_panel")
-	StatisticBtn := menu.Data("Статистика", "statistic_panel")
-	BroadcastBtn := menu.Data("Рассылка", "broadcast_panel")
+	GoalsBtn := menu.Data("📝 Управление целями:", "goals_panel")
+	StatisticBtn := menu.Data("📊 Статистика", "statistic_panel")
+	BroadcastBtn := menu.Data("📨 Рассылка", "broadcast_panel")
+	BackBtn := menu.Data("🔙 Назад", "back")
 
 	menu.Inline(
 		menu.Row(GoalsBtn, StatisticBtn),
 		menu.Row(BroadcastBtn),
+		menu.Row(BackBtn),
 	)
 
 	return c.Send("Админ панель", menu)
@@ -44,10 +47,10 @@ func (h *Handler) onBackToPanel(c tele.Context) error {
 func (h *Handler) onGoalsPanel(c tele.Context) error {
 	h.tryDeleteMessage(c)
 	menu := &tele.ReplyMarkup{}
-	AddGoal := menu.Data("Добавить цель", "add_goal")
-	ListGoal := menu.Data("Список целей", "list_goal")
-	EditGoal := menu.Data("Редактировать цель", "edit_goal")
-	DeleteGoal := menu.Data("Удалить цель", "delete_goal")
+	AddGoal := menu.Data("➕ Добавить цель", "add_goal")
+	ListGoal := menu.Data("📜 Список целей", "list_goal")
+	EditGoal := menu.Data("✏️ Редактировать цель", "edit_goal")
+	DeleteGoal := menu.Data("🗑️ Удалить цель", "delete_goal")
 	BackBtn := menu.Data("⬅️ Назад", "back_to_panel")
 
 	menu.Inline(
@@ -62,7 +65,7 @@ func (h *Handler) onGoalsPanel(c tele.Context) error {
 func (h *Handler) onStatisticPanel(c tele.Context) error {
 	h.tryDeleteMessage(c)
 	menu := &tele.ReplyMarkup{}
-	Statistic := menu.Data("Статистика", "statistic")
+	Statistic := menu.Data("🧮 Статистика", "statistic")
 	BackBtn := menu.Data("⬅️ Назад", "back_to_panel")
 
 	menu.Inline(

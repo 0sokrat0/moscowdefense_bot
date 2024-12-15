@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"TgDonation/internal/database/models"
-	"fmt"
 	"log"
 
 	tele "gopkg.in/telebot.v4"
@@ -52,13 +51,13 @@ func (h *Handler) tryDeleteMessage(c tele.Context) {
 	}
 }
 
-func (h *Handler) tryDeleteOnText(c tele.Context) {
-	if c.Message().Text != "" {
-		if err := c.Bot().Delete(c.Message()); err != nil {
-			log.Printf("Ошибка удаления сообщения: %v", err)
-		}
-	}
-}
+// func (h *Handler) tryDeleteOnText(c tele.Context) {
+// 	if c.Message().Text != "" {
+// 		if err := c.Bot().Delete(c.Message()); err != nil {
+// 			log.Printf("Ошибка удаления сообщения: %v", err)
+// 		}
+// 	}
+// }
 
 func (h *Handler) deleteUserMessage(c tele.Context) error {
 	msg := c.Message()
@@ -75,26 +74,26 @@ func (h *Handler) deleteUserMessage(c tele.Context) error {
 	return err
 }
 
-func (h *Handler) editPreviousMessage(c tele.Context, newText string, markup *tele.ReplyMarkup) error {
-	var msg *tele.Message
+// func (h *Handler) editPreviousMessage(c tele.Context, newText string, markup *tele.ReplyMarkup) error {
+// 	var msg *tele.Message
 
-	// Если вызывается из callback-хэндлера, сообщение обычно находится в c.Callback().Message
-	if c.Callback() != nil && c.Callback().Message != nil {
-		msg = c.Callback().Message
-	} else if c.Message() != nil {
-		// Если вызывается из хэндлера на обычное сообщение, то используем c.Message()
-		msg = c.Message()
-	}
+// 	// Если вызывается из callback-хэндлера, сообщение обычно находится в c.Callback().Message
+// 	if c.Callback() != nil && c.Callback().Message != nil {
+// 		msg = c.Callback().Message
+// 	} else if c.Message() != nil {
+// 		// Если вызывается из хэндлера на обычное сообщение, то используем c.Message()
+// 		msg = c.Message()
+// 	}
 
-	if msg == nil {
-		return fmt.Errorf("нет сообщения для редактирования")
-	}
+// 	if msg == nil {
+// 		return fmt.Errorf("нет сообщения для редактирования")
+// 	}
 
-	// Попытка отредактировать сообщение
-	_, err := c.Bot().Edit(msg, newText, markup, tele.ModeHTML)
-	if err != nil {
-		log.Printf("Ошибка при редактировании сообщения: %v", err)
-	}
+// 	// Попытка отредактировать сообщение
+// 	_, err := c.Bot().Edit(msg, newText, markup, tele.ModeHTML)
+// 	if err != nil {
+// 		log.Printf("Ошибка при редактировании сообщения: %v", err)
+// 	}
 
-	return err
-}
+// 	return err
+// }
