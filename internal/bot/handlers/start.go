@@ -7,16 +7,9 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
-// onBack обрабатывает кнопку "Назад"
-func (h *Handler) onBack(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
-
-	return h.onStart(c)
-}
-
 func (h *Handler) onStart(c tele.Context) error {
+
+	h.deleteUserMessage(c)
 
 	var existingUser models.User
 	if err := h.DB.Where("tg_id = ?", c.Sender().ID).First(&existingUser).Error; err != nil {

@@ -16,9 +16,6 @@ type FSM interface {
 }
 
 func (h *Handler) onDonation(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
 
 	h.resetFSM(c.Sender().ID)
 	fsm := h.getOrCreateFSM(c.Sender().ID)
@@ -47,6 +44,7 @@ func (h *Handler) onDonation(c tele.Context) error {
 }
 
 func (h *Handler) onBankDetails(c tele.Context) error {
+
 	fsm := h.getOrCreateFSM(c.Sender().ID)
 	ctx := context.Background()
 
@@ -76,6 +74,7 @@ func (h *Handler) onBankDetails(c tele.Context) error {
 }
 
 func (h *Handler) onEnterAmount(c tele.Context) error {
+
 	fsm := h.getOrCreateFSM(c.Sender().ID)
 	if fsm.Current() != StateEnterAmount {
 		h.resetFSM(c.Sender().ID)

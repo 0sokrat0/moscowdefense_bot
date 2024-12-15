@@ -82,6 +82,7 @@ func registerInlineButtons(bot *tele.Bot, h *Handler) {
 	bot.Handle(&tele.Btn{Unique: "priority_high"}, h.SetPriorityHandler)
 
 	bot.Handle(&tele.Btn{Unique: "statistic_panel"}, h.onStatisticPanel)
+	bot.Handle(&tele.Btn{Unique: "statistic"}, h.onStatistic)
 	bot.Handle(&tele.Btn{Unique: "main_menu"}, h.onMainMenu)
 	bot.Handle(&tele.Btn{Unique: "back_to_panel"}, h.onBackToPanel)
 

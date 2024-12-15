@@ -11,34 +11,6 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
-func (h *Handler) addFirstAdmin(c tele.Context) error {
-	var count int64
-	h.DB.Model(&models.Admin{}).Count(&count)
-
-	if count > 0 {
-		return c.Send("Администратор уже существует. Вы не можете использовать эту команду.")
-	}
-
-	admin := models.Admin{
-		TgID:     c.Sender().ID,
-		Username: c.Sender().Username,
-		Role:     "superadmin",
-	}
-
-	if err := h.DB.Create(&admin).Error; err != nil {
-		log.Printf("Ошибка при добавлении администратора: %v", err)
-		return c.Send("Ошибка при добавлении администратора.")
-	}
-
-	return c.Send("Вы успешно добавлены как администратор.")
-}
-
-func (h *Handler) isAdminFromDB(tgID int) bool {
-	var count int64
-	h.DB.Model(&models.Admin{}).Where("tg_id = ?", tgID).Count(&count)
-	return count > 0
-}
-
 // Админ-панель
 func (h *Handler) onPanel(c tele.Context) error {
 	if !h.isAdminFromDB(int(c.Sender().ID)) {
@@ -70,9 +42,7 @@ func (h *Handler) onBackToPanel(c tele.Context) error {
 }
 
 func (h *Handler) onGoalsPanel(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
+	h.tryDeleteMessage(c)
 	menu := &tele.ReplyMarkup{}
 	AddGoal := menu.Data("Добавить цель", "add_goal")
 	ListGoal := menu.Data("Список целей", "list_goal")
@@ -90,9 +60,7 @@ func (h *Handler) onGoalsPanel(c tele.Context) error {
 }
 
 func (h *Handler) onStatisticPanel(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
+	h.tryDeleteMessage(c)
 	menu := &tele.ReplyMarkup{}
 	Statistic := menu.Data("Статистика", "statistic")
 	BackBtn := menu.Data("⬅️ Назад", "back_to_panel")
@@ -101,7 +69,73 @@ func (h *Handler) onStatisticPanel(c tele.Context) error {
 		menu.Row(Statistic),
 		menu.Row(BackBtn),
 	)
+
 	return c.Send("Статистика", menu)
+
+}
+
+func (h *Handler) onStatistic(c tele.Context) error {
+	h.tryDeleteMessage(c)
+
+	if !h.isAdminFromDB(int(c.Sender().ID)) {
+		return c.Send("У вас нет доступа к этой функции.")
+	}
+
+	// Переменные для хранения результатов
+	var totalDonations float64
+	var donationsCount int64
+	var activeGoalsCount int64
+	var topGoal models.Goal
+
+	// Общая сумма пожертвований
+	if err := h.DB.Model(&models.Donation{}).Select("COALESCE(SUM(amount),0)").Scan(&totalDonations).Error; err != nil {
+		log.Printf("Ошибка при подсчёте общей суммы пожертвований: %v", err)
+		return c.Send("Ошибка при загрузке статистики.")
+	}
+
+	// Количество пожертвований
+	if err := h.DB.Model(&models.Donation{}).Count(&donationsCount).Error; err != nil {
+		log.Printf("Ошибка при подсчёте количества пожертвований: %v", err)
+		return c.Send("Ошибка при загрузке статистики.")
+	}
+
+	// Средний размер пожертвования
+	var avgDonation float64
+	if donationsCount > 0 {
+		avgDonation = totalDonations / float64(donationsCount)
+	}
+
+	// Количество активных целей
+	if err := h.DB.Model(&models.Goal{}).Where("status = ?", "active").Count(&activeGoalsCount).Error; err != nil {
+		log.Printf("Ошибка при подсчёте активных целей: %v", err)
+		return c.Send("Ошибка при загрузке статистики.")
+	}
+
+	// Цель с наибольшей собранной суммой
+	// Если целей нет, запрос вернёт ошибку или пустой результат
+	if err := h.DB.Order("current_sum DESC").First(&topGoal).Error; err != nil {
+		log.Printf("Ошибка при загрузке топ-цели: %v", err)
+		// В случае отсутствия целей - не критичная ошибка, просто пропускаем
+	}
+
+	// Формируем текстовый отчет
+	report := "<b>Статистика:</b>\n\n"
+	report += fmt.Sprintf("💰 Общая сумма пожертвований: <b>%.2f</b>\n", totalDonations)
+	report += fmt.Sprintf("📈 Количество пожертвований: <b>%d</b>\n", donationsCount)
+	report += fmt.Sprintf("💲 Средний размер пожертвования: <b>%.2f</b>\n", avgDonation)
+	report += fmt.Sprintf("🎯 Активных целей: <b>%d</b>\n", activeGoalsCount)
+
+	if topGoal.ID != 0 {
+		report += fmt.Sprintf("🏆 Топ цель по сбору: <b>%s</b> (%.2f из %.2f)\n", topGoal.Title, topGoal.CurrentSum, topGoal.TargetSum)
+	} else {
+		report += "🏆 Топ цель по сбору: Нет данных о целях\n"
+	}
+
+	back := &tele.ReplyMarkup{}
+	BackBtn := back.Data("⬅️ Назад", "back_to_panel")
+	back.Inline(back.Row(BackBtn))
+
+	return c.Send(report, back, tele.ModeHTML)
 }
 
 // Начало добавления цели
@@ -221,9 +255,7 @@ func (h *Handler) SetPriorityHandler(c tele.Context) error {
 }
 
 func (h *Handler) onListGoal(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
+	h.tryDeleteMessage(c)
 	if !h.isAdminFromDB(int(c.Sender().ID)) {
 		return c.Send("У вас нет доступа к этой функции.")
 	}
@@ -257,9 +289,7 @@ func (h *Handler) onListGoal(c tele.Context) error {
 
 // Редактирование целей
 func (h *Handler) onEditGoal(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
+	h.tryDeleteMessage(c)
 	if !h.isAdminFromDB(int(c.Sender().ID)) {
 		return c.Send("У вас нет доступа к этой функции.")
 	}
@@ -298,15 +328,11 @@ func (h *Handler) onEditGoal(c tele.Context) error {
 		rows = append(rows, menu.Row(btn))
 	}
 	menu.Inline(rows...)
-	menu.Inline(menu.Row(BackBtn))
 
 	return c.Send("Выберите цель для редактирования:", menu)
 }
 
 func (h *Handler) onEditGoalSelect(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
 	goalIDStr := c.Callback().Data
 	goalID, err := strconv.Atoi(goalIDStr)
 	if err != nil {
@@ -348,9 +374,6 @@ func (h *Handler) onEditGoalSelect(c tele.Context) error {
 }
 
 func (h *Handler) onEditField(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
 
 	field := c.Callback().Data
 	h.UserData[c.Sender().ID]["edit_field"] = field
@@ -396,9 +419,6 @@ func (h *Handler) onEditField(c tele.Context) error {
 }
 
 func (h *Handler) onTextAdminEdit(c tele.Context, fsm *fsm.FSM) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
 	data := h.UserData[c.Sender().ID]
 	if data == nil {
 		return nil
@@ -447,9 +467,6 @@ func (h *Handler) onTextAdminEdit(c tele.Context, fsm *fsm.FSM) error {
 }
 
 func (h *Handler) onEditPrioritySelect(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
 	data := h.UserData[c.Sender().ID]
 	if data == nil {
 		return c.Send("Нет активного процесса редактирования.")
@@ -478,9 +495,6 @@ func (h *Handler) onEditPrioritySelect(c tele.Context) error {
 }
 
 func (h *Handler) onEditStatusSelect(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
 	data := h.UserData[c.Sender().ID]
 	if data == nil {
 		return c.Send("Нет активного процесса редактирования.")
@@ -510,9 +524,7 @@ func (h *Handler) onEditStatusSelect(c tele.Context) error {
 
 // Удаление цели
 func (h *Handler) onDeleteGoal(c tele.Context) error {
-	if err := c.Bot().Delete(c.Callback().Message); err != nil {
-		log.Printf("Ошибка удаления сообщения: %v", err)
-	}
+	h.tryDeleteMessage(c)
 	if !h.isAdminFromDB(int(c.Sender().ID)) {
 		return c.Send("У вас нет доступа к этой функции.")
 	}
@@ -536,7 +548,6 @@ func (h *Handler) onDeleteGoal(c tele.Context) error {
 		rows = append(rows, menu.Row(btn))
 	}
 	menu.Inline(rows...)
-	menu.Inline(menu.Row(BackBtn))
 
 	return c.Send("Выберите цель для удаления:", menu)
 }
@@ -563,29 +574,29 @@ func (h *Handler) onDeleteGoalConfirm(c tele.Context) error {
 	return c.Edit("✅ Цель успешно удалена!\nВернитесь в админ-панель", back)
 }
 
-// Пересчёт сумм по целям
-func (h *Handler) onRecalcAllGoals(c tele.Context) error {
-	var goals []models.Goal
-	if err := h.DB.Find(&goals).Error; err != nil {
-		log.Printf("Ошибка при загрузке целей: %v", err)
-		return c.Send("Ошибка при загрузке целей.")
-	}
+// // Пересчёт сумм по целям
+// func (h *Handler) onRecalcAllGoals(c tele.Context) error {
+// 	var goals []models.Goal
+// 	if err := h.DB.Find(&goals).Error; err != nil {
+// 		log.Printf("Ошибка при загрузке целей: %v", err)
+// 		return c.Send("Ошибка при загрузке целей.")
+// 	}
 
-	for _, g := range goals {
-		if err := h.recalculateGoalCurrentSum(g.ID); err != nil {
-			log.Printf("Ошибка при пересчёте цели %d: %v", g.ID, err)
-		}
-	}
-	back := &tele.ReplyMarkup{}
-	BackBtn := back.Data("⬅️ Назад", "back_to_panel")
-	back.Inline(back.Row(BackBtn))
-	return c.Send("✅ Все цели пересчитаны.", back)
-}
+// 	for _, g := range goals {
+// 		if err := h.recalculateGoalCurrentSum(g.ID); err != nil {
+// 			log.Printf("Ошибка при пересчёте цели %d: %v", g.ID, err)
+// 		}
+// 	}
+// 	back := &tele.ReplyMarkup{}
+// 	BackBtn := back.Data("⬅️ Назад", "back_to_panel")
+// 	back.Inline(back.Row(BackBtn))
+// 	return c.Send("✅ Все цели пересчитаны.", back)
+// }
 
-func (h *Handler) recalculateGoalCurrentSum(goalID uint) error {
-	var total float64
-	if err := h.DB.Model(&models.Donation{}).Where("goal_id = ?", goalID).Select("COALESCE(SUM(amount),0)").Scan(&total).Error; err != nil {
-		return err
-	}
-	return h.DB.Model(&models.Goal{}).Where("id = ?", goalID).Update("current_sum", total).Error
-}
+// func (h *Handler) recalculateGoalCurrentSum(goalID uint) error {
+// 	var total float64
+// 	if err := h.DB.Model(&models.Donation{}).Where("goal_id = ?", goalID).Select("COALESCE(SUM(amount),0)").Scan(&total).Error; err != nil {
+// 		return err
+// 	}
+// 	return h.DB.Model(&models.Goal{}).Where("id = ?", goalID).Update("current_sum", total).Error
+// }
