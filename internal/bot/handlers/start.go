@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"TgDonation/internal/database/models"
-	tele "gopkg.in/telebot.v4"
 	"log"
+
+	tele "gopkg.in/telebot.v4"
 )
 
 // onBack обрабатывает кнопку "Назад"
@@ -20,10 +21,11 @@ func (h *Handler) onStart(c tele.Context) error {
 	var existingUser models.User
 	if err := h.DB.Where("tg_id = ?", c.Sender().ID).First(&existingUser).Error; err != nil {
 		menu := &tele.ReplyMarkup{
-			ResizeKeyboard: true,
-			RemoveKeyboard: true,
+			IsPersistent:    false,
+			OneTimeKeyboard: true,
+			ResizeKeyboard:  true,
 		}
-		btnRequestContact := menu.Contact("📱 Отправить контакт") // Кнопка для отправки контакта
+		btnRequestContact := menu.Contact("📱 Отправить контакт")
 
 		menu.Reply(
 			menu.Row(btnRequestContact),

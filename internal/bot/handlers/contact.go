@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"TgDonation/internal/database/models"
+
 	tele "gopkg.in/telebot.v4"
-	"log"
 )
 
 func (h *Handler) onContact(c tele.Context) error {
@@ -23,28 +23,28 @@ func (h *Handler) onContact(c tele.Context) error {
 		return c.Send("Ошибка при сохранении данных пользователя.")
 	}
 
-	menu := &tele.ReplyMarkup{}
-	btn1 := menu.Data("🧡 Сделать пожертвование", "donation")
-	btn2 := menu.Data("ℹ️ Информация о фонде", "info")
-	btn3 := menu.Data("💬 Наши соц.сети", "contact")
-	btn4 := menu.Data("🎯 Цели", "goal")
-
-	menu.Inline(
-		menu.Row(btn1),
-		menu.Row(btn2),
-		menu.Row(btn3),
-		menu.Row(btn4),
-	)
-
-	photo := &tele.Photo{
-		File:    tele.FromURL("https://disk.yandex.ru/i/ZTimPinmv7RioQ"),
-		Caption: "<b>Добро пожаловать в бот \"Марфинский Тыл\"! 🇷🇺</b>\n\nМы помогаем укреплять тыл и поддерживать тех, кто участвует в СВО. Здесь вы можете:\n- Узнать, как помочь;\n- Сделать пожертвование;\n- Получить актуальную информацию о нашей работе.\n\n<b>Спасибо за вашу поддержку! Вместе мы сильнее.</b> 💪",
+	removeKeyboard := &tele.ReplyMarkup{
+		RemoveKeyboard: true,
 	}
 
-	if _, err := c.Bot().Send(c.Chat(), photo, menu); err != nil {
-		log.Printf("Ошибка отправки фото: %v", err)
-		return err
+	reaction := tele.Reaction{
+		Type:  "emoji",
+		Emoji: "👀",
 	}
 
-	return nil
+	reactions := tele.Reactions{
+		Reactions: []tele.Reaction{reaction},
+		Big:       false,
+	}
+
+	if err := c.Bot().React(c.Sender(), c.Message(), reactions); err != nil {
+		return c.Send("Не удалось добавить реакцию.")
+	}
+
+	// Отправляем сообщение с удалением клавиатуры
+	if err := c.Send("✅", removeKeyboard); err != nil {
+
+	}
+
+	return h.onStart(c)
 }

@@ -5,15 +5,7 @@ import (
 	"log"
 
 	tele "gopkg.in/telebot.v4"
-	"gorm.io/gorm"
 )
-
-func NewHandler(db *gorm.DB) *Handler {
-	return &Handler{
-		DB:                db,
-		UserAlbumMessages: make(map[int64][]*tele.Message),
-	}
-}
 
 func (h *Handler) onInfo(c tele.Context) error {
 	if err := c.Bot().Delete(c.Callback().Message); err != nil {

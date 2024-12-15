@@ -9,13 +9,6 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
-const (
-	StateStart       = "start"
-	StateSelectBank  = "bank"
-	StateEnterAmount = "amount"
-	StateFinish      = "finish"
-)
-
 type FSM interface {
 	Event(ctx context.Context, event string) error
 	Current() string
@@ -23,8 +16,21 @@ type FSM interface {
 }
 
 func (h *Handler) onDonation(c tele.Context) error {
+	if err := c.Bot().Delete(c.Callback().Message); err != nil {
+		log.Printf("Ошибка удаления сообщения: %v", err)
+	}
+
+	h.resetFSM(c.Sender().ID)
 	fsm := h.getOrCreateFSM(c.Sender().ID)
+
+	h.UserData[c.Sender().ID] = ensureUserData(h.UserData[c.Sender().ID])
+	h.UserData[c.Sender().ID]["mode"] = "user"
+
 	ctx := context.Background()
+
+	if fsm.Current() != StateStart {
+		return c.Send("Вы не можете начать процесс пожертвования с текущего состояния.")
+	}
 
 	if err := deleteMessage(c); err != nil {
 		log.Printf("Ошибка удаления сообщения: %v", err)
@@ -66,8 +72,6 @@ func (h *Handler) onBankDetails(c tele.Context) error {
 		h.resetFSM(c.Sender().ID)
 		return c.Send("Произошла ошибка. Начните процесс заново.")
 	}
-
-	log.Printf("User %d selected bank: %s", c.Sender().ID, selectedBank)
 	return c.Send(bankDetails.Details + "\n\n<b>Введите сумму пожертвования:</b>")
 }
 
@@ -139,7 +143,7 @@ func (h *Handler) onUploadReceipt(c tele.Context) error {
 		return c.Send("Не удалось добавить реакцию.")
 	}
 
-	h.deleteAllMessages(c)
+	// h.deleteAllMessages(c)
 	h.resetFSM(c.Sender().ID)
 
 	menu := &tele.ReplyMarkup{}
@@ -150,11 +154,18 @@ func (h *Handler) onUploadReceipt(c tele.Context) error {
 }
 
 func (h *Handler) resetFSM(userID int64) {
-	log.Printf("Resetting FSM for User %d", userID)
-	if h.UserFSM[userID] != nil {
-		h.UserFSM[userID].SetState(StateStart)
+	if _, exists := h.UserFSM[userID]; exists {
+		delete(h.UserFSM, userID)
+		log.Printf("FSM пожертвований сброшено для пользователя %d.", userID)
 	}
-	delete(h.UserData, userID)
+	if _, exists := h.AdminFSM[userID]; exists {
+		delete(h.AdminFSM, userID)
+		log.Printf("FSM администратора сброшено для пользователя %d.", userID)
+	}
+	// Сбрасываем режим
+	if data, ok := h.UserData[userID]; ok {
+		delete(data, "mode")
+	}
 }
 
 // Utility functions
@@ -165,18 +176,18 @@ func deleteMessage(c tele.Context) error {
 	return nil
 }
 
-func (h *Handler) deleteAllMessages(c tele.Context) {
-	if msgs, ok := h.UserData[c.Sender().ID]["messages"].([]*tele.Message); ok {
-		for _, msg := range msgs {
-			if err := c.Bot().Delete(msg); err != nil {
-				log.Printf("Error deleting message: %v", err)
-			}
-		}
-		h.UserData[c.Sender().ID]["messages"] = []*tele.Message{}
-	} else {
-		log.Printf("No messages found for user %d", c.Sender().ID)
-	}
-}
+// func (h *Handler) deleteAllMessages(c tele.Context) {
+// 	if msgs, ok := h.UserData[c.Sender().ID]["messages"].([]*tele.Message); ok {
+// 		for _, msg := range msgs {
+// 			if err := c.Bot().Delete(msg); err != nil {
+// 				log.Printf("Error deleting message: %v", err)
+// 			}
+// 		}
+// 		h.UserData[c.Sender().ID]["messages"] = []*tele.Message{}
+// 	} else {
+// 		log.Printf("No messages found for user %d", c.Sender().ID)
+// 	}
+// }
 
 func (h *Handler) onMainMenu(c tele.Context) error {
 	h.resetFSM(c.Sender().ID)

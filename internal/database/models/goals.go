@@ -3,13 +3,16 @@ package models
 import "time"
 
 type Goal struct {
-	ID          uint       `gorm:"primaryKey"`                 // Уникальный идентификатор цели
-	GoalText    string     `gorm:"type:text;not null"`         // Текст описания цели
-	Status      string     `gorm:"type:text;default:'active'"` // Статус цели (active, completed, cancelled)
-	Priority    string     `gorm:"type:text;default:'medium'"` // Приоритет цели (low, medium, high)
-	CreatedAt   time.Time  `gorm:"autoCreateTime"`             // Время создания
-	UpdatedAt   time.Time  `gorm:"autoUpdateTime"`             // Время обновления
-	CompletedAt *time.Time `gorm:"default:null"`               // Время завершения
-	AdminID     uint       `gorm:"not null"`                   // ID администратора
-	DeletedAt   *time.Time `gorm:"index"`                      // Поле для мягкого удаления
+	ID          uint   `gorm:"primaryKey"`
+	GoalText    string `gorm:"type:text;not null"` // Исправлено: соответствует goal_text в базе данных
+	Title       string `gorm:"type:text;not null"`
+	Description string
+	TargetSum   float64    `gorm:"not null"`
+	CurrentSum  float64    `gorm:"default:0"`
+	Status      string     `gorm:"type:text;default:'active'"`
+	Priority    string     `gorm:"type:text;default:'medium'"`
+	CreatedAt   time.Time  `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time  `gorm:"autoUpdateTime"`
+	AdminID     uint       `gorm:"not null"`
+	DeletedAt   *time.Time `gorm:"index"`
 }
