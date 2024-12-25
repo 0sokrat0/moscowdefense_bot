@@ -46,7 +46,6 @@ func (h *Handler) addFirstAdmin(c tele.Context) error {
 func (h *Handler) tryDeleteMessage(c tele.Context) {
 	if c.Callback() != nil && c.Callback().Message != nil {
 		if err := c.Bot().Delete(c.Callback().Message); err != nil {
-			log.Printf("Ошибка удаления сообщения: %v", err)
 		}
 	}
 }
@@ -69,9 +68,24 @@ func (h *Handler) deleteUserMessage(c tele.Context) error {
 	// Пытаемся удалить сообщение пользователя
 	err := c.Bot().Delete(msg)
 	if err != nil {
-		log.Printf("Ошибка при удалении сообщения пользователя: %v", err)
+
 	}
 	return err
+}
+
+func (h *Handler) resetFSM(userID int64) {
+	if _, exists := h.UserFSM[userID]; exists {
+		delete(h.UserFSM, userID)
+		log.Printf("FSM пожертвований сброшено для пользователя %d.", userID)
+	}
+	if _, exists := h.AdminFSM[userID]; exists {
+		delete(h.AdminFSM, userID)
+		log.Printf("FSM администратора сброшено для пользователя %d.", userID)
+	}
+	// Сбрасываем режим
+	if data, ok := h.UserData[userID]; ok {
+		delete(data, "mode")
+	}
 }
 
 // func (h *Handler) editPreviousMessage(c tele.Context, newText string, markup *tele.ReplyMarkup) error {

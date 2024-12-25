@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strconv"
 
 	"TgDonation"
 	"TgDonation/internal/bot"
@@ -27,8 +28,13 @@ func main() {
 		DB: db,
 	}
 
+	groupChatID, err := strconv.ParseInt(config.GroupChatID, 10, 64)
+	if err != nil {
+		log.Fatalf("Невалидный GROUP_CHAT_ID: %v", err)
+	}
+
 	// Инициализация бота
-	b, err := bot.New(config.Token, boot)
+	b, err := bot.New(config.Token, boot, groupChatID)
 	if err != nil {
 		log.Fatalf("Ошибка инициализации бота: %v", err)
 	}
