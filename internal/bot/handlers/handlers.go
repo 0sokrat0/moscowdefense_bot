@@ -85,6 +85,7 @@ func registerInlineButtons(bot *tele.Bot, h *Handler) {
 
 	// Админ-панель
 	bot.Handle(&tele.Btn{Unique: "goals_panel"}, h.onGoalsPanel)
+	bot.Handle(&tele.Btn{Unique: "broadcast_panel"}, h.onBroadcast)
 	bot.Handle(&tele.Btn{Unique: "add_goal"}, h.AddGoalHandler)
 	bot.Handle(&tele.Btn{Unique: "priority_low"}, h.SetPriorityHandler)
 	bot.Handle(&tele.Btn{Unique: "priority_medium"}, h.SetPriorityHandler)

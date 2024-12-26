@@ -1,0 +1,17 @@
+version: '3'
+services:
+  app:
+    build: .
+    ports:
+      - "8081:8080"  # Порт для веб-интерфейса SQLite
+      - "8080:8080"  # Порт для основного Go приложения
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_PATH=/app/database.db
+    networks:
+      - webnet
+
+networks:
+  webnet:
+    driver: bridge
