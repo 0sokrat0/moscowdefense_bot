@@ -11,6 +11,15 @@ func (h *Handler) onStart(c tele.Context) error {
 
 	h.deleteUserMessage(c)
 
+	if c.Chat().Type != tele.ChatPrivate {
+		botmenu := &tele.ReplyMarkup{}
+		shareBtn := botmenu.URL("Перейти в бота", "t.me/moscowdefense_bot")
+		botmenu.Inline(
+			botmenu.Row(shareBtn),
+		)
+		return c.Send("Пожалуйста, перейдите в личный чат с ботом для использования этой команды", botmenu)
+	}
+
 	var existingUser models.User
 	if err := h.DB.Where("tg_id = ?", c.Sender().ID).First(&existingUser).Error; err != nil {
 		menu := &tele.ReplyMarkup{

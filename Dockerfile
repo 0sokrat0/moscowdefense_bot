@@ -1,25 +1,44 @@
-FROM golang:alpine as builder
+# Используем официальный образ Golang как базовый образ
+FROM golang:1.23.4-alpine AS build
 
-WORKDIR /src
+# Устанавливаем зависимости
+RUN apk update && apk add --no-cache git sqlite
 
-COPY go.mod go.sum ./
-
-RUN go mod download
-
-COPY . .
-
-RUN go build -o bot ./cmd/bot
-
-FROM alpine
-
+# Устанавливаем текущий рабочий каталог внутри контейнера
 WORKDIR /app
 
-COPY --from=builder /src/bot .
+# Копируем манифесты модулей Go
+COPY go.mod go.sum ./
 
-COPY --from=builder /src/config.yaml .
+# Загружаем и кешируем модули Go
+RUN go mod download
 
-COPY --from=builder /src/locales locales
+# Копируем файлы проекта в контейнер
+COPY . .
 
-COPY --from=builder /src/sql sql
+# Собираем Go приложение
+RUN go build -o /app/main ./cmd/bot/main.go
 
-ENTRYPOINT ["/app/bot"]
+# Делаем исполняемый файл main выполняемым
+RUN chmod +x /app/main
+
+# Добавляем команду для проверки содержимого /app
+RUN ls -l /app
+
+# Используем официальный образ Python как базовый для веб-интерфейса
+FROM python:3.8-slim AS web
+
+# Устанавливаем зависимости
+RUN pip install sqlite-web
+
+# Копируем собранное Go приложение из предыдущего этапа
+COPY --from=build /app /app
+
+# Устанавливаем текущий рабочий каталог внутри контейнера
+WORKDIR /app
+
+# Добавляем команду для проверки содержимого /app
+RUN ls -l /app
+
+# Запускаем Go приложение и веб-интерфейс
+CMD ["sh", "-c", "sqlite_web /app/database.db --host 0.0.0.0 --port 8080 & /app/main"]

@@ -307,9 +307,11 @@ func createBankMenu() *tele.ReplyMarkup {
 	btnSber := menu.Data("🟢 Сбербанк", "sber", "sber")
 	btnVTB := menu.Data("🔵 ВТБ", "vtb", "vtb")
 	btnSBP := menu.Data("💠 СБП", "sbp", "sbp")
+	btnBack := menu.Data("⬅️ Назад", "main_menu")
 
 	menu.Inline(
 		menu.Row(btnSber, btnVTB, btnSBP),
+		menu.Row(btnBack),
 	)
 	return menu
 }

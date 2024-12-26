@@ -67,7 +67,7 @@ func (h *Handler) onGoal(c tele.Context) error {
 
 	// 3) Создаём меню (кнопка «Назад»)
 	menu := &tele.ReplyMarkup{}
-	btnBack := menu.Data("⬅️ Назад", "back_to_panel")
+	btnBack := menu.Data("⬅️ Назад", "main_menu")
 	menu.Inline(menu.Row(btnBack))
 
 	// 4) Формируем сообщение
