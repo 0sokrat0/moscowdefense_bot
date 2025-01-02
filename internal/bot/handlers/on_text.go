@@ -7,6 +7,10 @@ import (
 )
 
 func (h *Handler) onText(c tele.Context) error {
+	if c.Chat().Type != tele.ChatPrivate {
+		return nil // Игнорируем сообщения из групп или каналов
+	}
+
 	mode, _ := h.UserData[c.Sender().ID]["mode"].(string)
 
 	// Если админ
